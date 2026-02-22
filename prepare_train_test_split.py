@@ -69,9 +69,8 @@ train_df.to_csv('data/trainset.txt', sep=' ', header=False, index=False)
 test_df.to_csv('data/testset.txt', sep=' ', header=False, index=False)
 
 
-# 1. Define your paths
+# 1. Define source path
 source_folder = "./data/img_align_celeba/img_align_celeba"
-target_folder = "./data/img_align_celeba_filtered"
 
 # 2. Create a set for O(1) lightning-fast lookups
 pictures_to_keep = set(train_df['name']).union(set(test_df['name']))

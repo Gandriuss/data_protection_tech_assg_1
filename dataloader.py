@@ -1,6 +1,6 @@
 import os, utils, torchvision
 import json, PIL, time, random
-import torch, math, cv2
+import torch, math
 
 import numpy as np
 import pandas as pd
@@ -28,37 +28,91 @@ class ImageFolder(data.Dataset):
 		self.model_name = args["dataset"]["model_name"]
 		# self.img_list = os.listdir(self.img_path)
 		self.processor = self.get_processor()
+		self.label_map = None
+		self.inv_label_map = None
 		self.name_list, self.label_list = self.get_list(file_path) 
 		self.image_list = self.load_img()
 		self.num_img = len(self.image_list)
 		self.n_classes = args["dataset"]["n_classes"]
-		if self.mode is not "gan":
+		if self.mode != "gan":
 			print("Load " + str(self.num_img) + " images")
 
 	
 	def get_list(self, file_path):
 		name_list, label_list = [], []
-		f = open(file_path, "r")
-		for line in f.readlines():
-			if self.mode == "gan":
-				img_name = line.strip()
-			else:
-				img_name, iden = line.strip().split(' ')
-				label_list.append(int(iden))
-			name_list.append(img_name)
-			
+		remap = bool(self.args.get('dataset', {}).get('remap_labels', True))
+		max_classes = int(self.args["dataset"].get("n_classes", 0)) if remap else None
+		label_map = {}  # raw_id -> mapped_id
+		next_id = 0
+		with open(file_path, "r") as f:
+			for line in f.readlines():
+				line = line.strip()
+				if not line:
+					continue
+				if self.mode == "gan":
+					img_name = line
+					name_list.append(img_name)
+					continue
+				parts = line.split()
+				if len(parts) != 2:
+					continue
+				img_name, raw_id_str = parts
+				raw_id = int(raw_id_str)
+				if remap:
+					mapped = label_map.get(raw_id)
+					if mapped is None:
+						if max_classes and next_id >= max_classes:
+							# Too many unique identities for configured n_classes.
+							continue
+						mapped = next_id
+						label_map[raw_id] = mapped
+						next_id += 1
+					label_list.append(mapped)
+				else:
+					label_list.append(raw_id)
+				name_list.append(img_name)
 
+		if remap:
+			self.label_map = label_map
+			self.inv_label_map = {v: k for k, v in label_map.items()}
 		return name_list, label_list
 
 	
 	def load_img(self):
 		img_list = []
+		valid_names = []
+		valid_labels = []
+		skipped = []
 		for i, img_name in enumerate(self.name_list):
-			if img_name.endswith(".jpg"):
-				path = self.img_path + "/" + img_name
-				img = PIL.Image.open(path)
-				img = img.convert('RGB')
-				img_list.append(img)
+			if not img_name.endswith(".jpg"):
+				continue
+			path = os.path.join(self.img_path, img_name)
+			try:
+				if os.path.exists(path) and os.path.getsize(path) == 0:
+					raise OSError("empty file")
+				with Image.open(path) as im:
+					im = im.convert('RGB')
+					im.load()
+					img_list.append(im.copy())
+				valid_names.append(img_name)
+				if self.mode != "gan":
+					valid_labels.append(self.label_list[i])
+			except Exception as e:
+				skipped.append((path, str(e)))
+				continue
+
+		# Keep lists aligned if we had to skip corrupted images.
+		self.name_list = valid_names
+		if self.mode != "gan":
+			self.label_list = valid_labels
+
+		if skipped:
+			max_show = 5
+			print(f"Warning: skipped {len(skipped)} unreadable image(s) while building dataset.")
+			for p, err in skipped[:max_show]:
+				print(f"  - {p}: {err}")
+			if len(skipped) > max_show:
+				print(f"  - ... and {len(skipped) - max_show} more")
 		return img_list
 	
 	
@@ -125,6 +179,8 @@ class GrayFolder(data.Dataset):
 		self.img_path = args["dataset"]["img_path"]
 		self.img_list = os.listdir(self.img_path)
 		self.processor = self.get_processor()
+		self.label_map = None
+		self.inv_label_map = None
 		self.name_list, self.label_list = self.get_list(file_path) 
 		self.image_list = self.load_img()
 		self.num_img = len(self.image_list)
@@ -133,26 +189,77 @@ class GrayFolder(data.Dataset):
 
 	def get_list(self, file_path):
 		name_list, label_list = [], []
-		f = open(file_path, "r")
-		for line in f.readlines():
-			if self.mode == "gan":
-				img_name = line.strip()
-			else:
-				img_name, iden = line.strip().split(' ')
-				label_list.append(int(iden))
-			name_list.append(img_name)
+		remap = bool(self.args.get('dataset', {}).get('remap_labels', True))
+		max_classes = int(self.args["dataset"].get("n_classes", 0)) if remap else None
+		label_map = {}
+		next_id = 0
+		with open(file_path, "r") as f:
+			for line in f.readlines():
+				line = line.strip()
+				if not line:
+					continue
+				if self.mode == "gan":
+					img_name = line
+					name_list.append(img_name)
+					continue
+				parts = line.split()
+				if len(parts) != 2:
+					continue
+				img_name, raw_id_str = parts
+				raw_id = int(raw_id_str)
+				if remap:
+					mapped = label_map.get(raw_id)
+					if mapped is None:
+						if max_classes and next_id >= max_classes:
+							continue
+						mapped = next_id
+						label_map[raw_id] = mapped
+						next_id += 1
+					label_list.append(mapped)
+				else:
+					label_list.append(raw_id)
+				name_list.append(img_name)
 
+		if remap:
+			self.label_map = label_map
+			self.inv_label_map = {v: k for k, v in label_map.items()}
 		return name_list, label_list
 
 	
 	def load_img(self):
 		img_list = []
+		valid_names = []
+		valid_labels = []
+		skipped = []
 		for i, img_name in enumerate(self.name_list):
-			if img_name.endswith(".png"):
-				path = self.img_path + "/" + img_name
-				img = PIL.Image.open(path)
-				img = img.convert('L')
-				img_list.append(img)
+			if not img_name.endswith(".png"):
+				continue
+			path = os.path.join(self.img_path, img_name)
+			try:
+				if os.path.exists(path) and os.path.getsize(path) == 0:
+					raise OSError("empty file")
+				with Image.open(path) as im:
+					im = im.convert('L')
+					im.load()
+					img_list.append(im.copy())
+				valid_names.append(img_name)
+				if self.mode != "gan":
+					valid_labels.append(self.label_list[i])
+			except Exception as e:
+				skipped.append((path, str(e)))
+				continue
+
+		self.name_list = valid_names
+		if self.mode != "gan":
+			self.label_list = valid_labels
+
+		if skipped:
+			max_show = 5
+			print(f"Warning: skipped {len(skipped)} unreadable image(s) while building dataset.")
+			for p, err in skipped[:max_show]:
+				print(f"  - {p}: {err}")
+			if len(skipped) > max_show:
+				print(f"  - ... and {len(skipped) - max_show} more")
 		return img_list
 	
 	def get_processor(self):

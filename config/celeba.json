@@ -11,7 +11,7 @@
         "lr": 0.0002,
         "batch_size": 64,
         "z_dim": 100,
-        "epochs": 120,
+        "epochs": 20,
         "n_critic": 5,
         "unlabel_weight": 10
     },

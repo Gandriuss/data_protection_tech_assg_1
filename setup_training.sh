@@ -14,7 +14,7 @@ uv venv .venv --system-site-packages
 source .venv/bin/activate
 
 # 3. Install dependencies and fix PATH
-uv pip install ipykernel pandas scikit-learn torchvision matplotlib
+uv pip install ipykernel pandas scikit-learn torchvision matplotlib tensorboardX
 export PATH="/workspace/data_protection_tech_assg_1/.venv/bin:$PATH"
 
 # 4. Configure Git
@@ -23,10 +23,13 @@ git config user.email "andriusresetnikovas1@gmail.com"
 
 # 5. Handle Data
 cd data
-apt update
-apt install zip unzip -y
+curl -L -o ./celeba-dataset.zip\
+  https://www.kaggle.com/api/v1/datasets/download/jessicali9530/celeba-dataset
+
 
 # Unzip and cleanup
+apt update
+apt install zip unzip -y
 if [ -f "celeba-dataset.zip" ]; then
     unzip celeba-dataset.zip
     rm celeba-dataset.zip

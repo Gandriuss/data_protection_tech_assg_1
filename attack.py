@@ -242,6 +242,5 @@ def inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter_time
 	acc_var = statistics.variance(res)
 	acc_var5 = statistics.variance(res5)
 	print("Acc:{:.2f}\tAcc_5:{:.2f}\tAcc_var:{:.4f}\tAcc_var5:{:.4f}".format(acc, acc_5, acc_var, acc_var5))
-	print("seeds variance:", seed_var)
 	
 	return acc, acc_5, acc_var, acc_var5

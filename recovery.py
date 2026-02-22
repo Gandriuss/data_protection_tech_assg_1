@@ -38,8 +38,8 @@ if __name__ == "__main__":
     parser = ArgumentParser(description='Step2: targeted recovery')
     parser.add_argument('--model', default='VGG16', help='VGG16 | IR152 | FaceNet64')
     parser.add_argument('--device', type=str, default='4,5,6,7', help='Device to use. Like cuda, cuda:0 or cpu')
-    parser.add_argument('--improved_flag', action='store_true', default=False, help='use improved k+1 GAN')
-    parser.add_argument('--dist_flag', action='store_true', default=False, help='use distributional recovery')
+    parser.add_argument('--improved_flag', action='store_true', default=True, help='use improved k+1 GAN')
+    parser.add_argument('--dist_flag', action='store_true', default=True, help='use distributional recovery')
     args = parser.parse_args()
     logger = get_logger()
 
@@ -71,26 +71,43 @@ if __name__ == "__main__":
     ckp_D = torch.load(path_D)
     D.load_state_dict(ckp_D['state_dict'], strict=False)
 
-    if args.model.startswith("VGG16"):
-        T = VGG16(1000)
-        path_T = './target_model/target_ckp/VGG16_88.26.tar'
-    elif args.model.startswith('IR152'):
-        T = IR152(1000)
-        path_T = './target_model/target_ckp/IR152_91.16.tar'
-    elif args.model == "FaceNet64":
-        T = FaceNet64(1000)
-        path_T = './target_model/target_ckp/FaceNet64_88.50.tar'
+    # Pick the best VGG16 checkpoint by parsing accuracy from filename.
+    # Expected pattern: VGG16_<ACC>_*.tar or VGG16_<ACC>.tar
+    ckpt_dir = './target_model/target_ckp'
+    best_acc = None
+    path_T = None
+    for fname in os.listdir(ckpt_dir):
+        if not (fname.startswith('VGG16_') and fname.endswith('.tar')):
+            continue
+        parts = fname.split('_')
+        if len(parts) < 2:
+            continue
+        # parts[1] is the token between 1st and 2nd underscore.
+        # It may be like "88.26.tar" or "74.48" depending on filename.
+        acc_token = parts[1]
+        if acc_token.endswith('.tar'):
+            acc_token = acc_token[:-4]
+        try:
+            acc = float(acc_token)
+        except ValueError:
+            continue
+        if best_acc is None or acc > best_acc:
+            best_acc = acc
+            path_T = os.path.join(ckpt_dir, fname)
+
+    if path_T is None:
+        raise FileNotFoundError(f'No suitable VGG16_*.tar found in {ckpt_dir}')
+
+    print(f"Selected target checkpoint: {path_T} (acc={best_acc:.2f})")
+    T = VGG16(1000)
 
     
     T = torch.nn.DataParallel(T).cuda()
     ckp_T = torch.load(path_T)
     T.load_state_dict(ckp_T['state_dict'], strict=False)
 
-    E = FaceNet(1000)
-    E = torch.nn.DataParallel(E).cuda()
-    path_E = './target_model/target_ckp/FaceNet_95.88.tar'
-    ckp_E = torch.load(path_E)
-    E.load_state_dict(ckp_E['state_dict'], strict=False)
+    # No FaceNet evaluator needed; attack metrics use VGG16 (T).
+    E = None
 
 
     ############         attack     ###########

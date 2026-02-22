@@ -39,42 +39,19 @@ class ImageFolder(data.Dataset):
 
 	
 	def get_list(self, file_path):
+		max_classes = int(self.args["dataset"].get("n_classes", 0))
 		name_list, label_list = [], []
-		remap = bool(self.args.get('dataset', {}).get('remap_labels', True))
-		max_classes = int(self.args["dataset"].get("n_classes", 0)) if remap else None
-		label_map = {}  # raw_id -> mapped_id
-		next_id = 0
-		with open(file_path, "r") as f:
-			for line in f.readlines():
-				line = line.strip()
-				if not line:
+		f = open(file_path, "r")
+		for line in f.readlines():
+			if self.mode == "gan":
+				img_name, _ = line.strip().split(' ')
+			else:
+				img_name, iden = line.strip().split(' ')
+				if int(iden) >= max_classes:
 					continue
-				if self.mode == "gan":
-					img_name = line
-					name_list.append(img_name)
-					continue
-				parts = line.split()
-				if len(parts) != 2:
-					continue
-				img_name, raw_id_str = parts
-				raw_id = int(raw_id_str)
-				if remap:
-					mapped = label_map.get(raw_id)
-					if mapped is None:
-						if max_classes and next_id >= max_classes:
-							# Too many unique identities for configured n_classes.
-							continue
-						mapped = next_id
-						label_map[raw_id] = mapped
-						next_id += 1
-					label_list.append(mapped)
-				else:
-					label_list.append(raw_id)
-				name_list.append(img_name)
-
-		if remap:
-			self.label_map = label_map
-			self.inv_label_map = {v: k for k, v in label_map.items()}
+				label_list.append(int(iden))
+			name_list.append(img_name)
+			
 		return name_list, label_list
 
 	

@@ -6,13 +6,11 @@ from pathlib import Path
 import numpy as np
 
 file_path = "identity_CelebA_jpg.txt"
-train_to_test_split_ratio = 0.9
+train_to_test_split_ratio = 0.8
 
 # ---- Tunables ----
-# N_VICTIM_LABELS = 1500
-# N_ATTACK_LABELS = 1000
 N_VICTIM_LABELS = 1000
-N_ATTACK_LABELS = 500
+N_ATTACK_LABELS = 2000
 RANDOM_STATE = 42
 
 
@@ -49,13 +47,9 @@ labelsdf = pd.DataFrame(collector)
 # 1. Get the counts (as we did before)
 counts = labelsdf['label'].value_counts()
 
-# 2. Identify labels that have at least 6 occurrences
-# This creates a list or Index of labels to keep
-keep_labels = counts[counts >= 10].index
 
 # 3. Filter the original dataframe
-# .isin() is the most efficient way to check against a list
-filtered_df = labelsdf[labelsdf['label'].isin(keep_labels)]
+filtered_df = labelsdf.sort_values('label', ascending=True)
 
 # Optional: Verify the results
 print(f"Original rows: {len(labelsdf)}")
@@ -98,7 +92,7 @@ attacking_train_df.to_csv('data/ganset.txt', sep=' ', header=False, index=False)
 # 1. Define source path
 source_folder = "./data/img_align_celeba/img_align_celeba"
 
-# 2. Create a set for O(1) lightning-fast lookups
+# 2. Create a set for lookups
 pictures_to_keep = (
     set(train_df['name'])
     .union(set(test_df['name']))

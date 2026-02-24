@@ -22,6 +22,7 @@ git config user.name "Andrius"
 git config user.email "andriusresetnikovas1@gmail.com"
 
 # 5. Handle Data
+mkdir -p data
 cd data
 curl -L -o ./celeba-dataset.zip\
   https://www.kaggle.com/api/v1/datasets/download/jessicali9530/celeba-dataset

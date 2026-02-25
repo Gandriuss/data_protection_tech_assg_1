@@ -17,7 +17,7 @@ import numpy as np
 from attack import inversion, dist_inversion
 from generator import Generator
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-
+from logging import csv_logs
 
 # logger
 def get_logger():
@@ -104,6 +104,9 @@ if __name__ == "__main__":
     ckp_E = torch.load(path_E)
     E.load_state_dict(ckp_E['state_dict'], strict=False)
 
+    run_type = args.run_type
+    max_iter = 4800
+    iter_csv_f, iter_csv_writer, summary_csv_writer, summary_csv_f = csv_logs(run_type, max_iter)
 
     ############         attack     ###########
     logger.info("=> Begin attacking ...")
@@ -116,18 +119,27 @@ if __name__ == "__main__":
         for idx in range(5):
             print("--------------------- Attack batch [%s]------------------------------" % idx)
             if args.dist_flag == True:
-                acc, acc5, var, var5 = dist_inversion(G, D, T, E, iden, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=4800, clip_range=1, improved=args.improved_flag, num_seeds=5, run_type=args.run_type)
-            else:
-                acc, acc5, var, var5 = inversion(G, D, T, E, iden, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=2400, clip_range=1, improved=args.improved_flag)
-            
+                acc, acc5, var, var5 = dist_inversion(G, D, T, E, iden, iter_csv_writer, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=max_iter, clip_range=1, improved=args.improved_flag, num_seeds=5, run_type=run_type)
+
             iden = iden + 60
             aver_acc += acc / 5
             aver_acc5 += acc5 / 5
             aver_var += var / 5
             aver_var5 += var5 / 5
 
-            break
-
     print("Average Acc:{:.2f}\tAverage Acc5:{:.2f}\tAverage Acc_var:{:.4f}\tAverage Acc_var5:{:.4f}".format(aver_acc, aver_acc5, aver_var, aver_var5))
 
+
+    summary_csv_writer.writerow(
+        {
+            'run_type': run_type,
+            'max_iter': max_iter,
+            'aver_acc': float(aver_acc),
+            'aver_acc5': float(aver_acc5),
+            'aver_var': float(aver_var),
+            'aver_var5': float(aver_var5),
+        }
+    )
+    iter_csv_f.close()
+    summary_csv_f.close()
     

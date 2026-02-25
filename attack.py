@@ -33,7 +33,7 @@ def reparameterize(mu, logvar):
     return eps * std + mu
 
 
-def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter_times=1500, clip_range=1, improved=False, num_seeds=5, run_type="base"):
+def dist_inversion(G, D, T, E, iden, itr, iter_csv_writer, lr=2e-2, momentum=0.9, lamda=100, iter_times=1500, clip_range=1, improved=False, num_seeds=5, run_type="base"):
     iden = iden.view(-1).long().cuda()
     criterion = nn.CrossEntropyLoss().cuda()
     bs = iden.shape[0]
@@ -45,30 +45,6 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
 
     no = torch.zeros(bs) # index for saving all success attack images
 
-    # Protection logging (CSV) + more descriptive image names.
-    protection_dir = './protection_results'
-    os.makedirs(protection_dir, exist_ok=True)
-    max_iter = int(iter_times)
-    run_stamp = time.strftime('%Y%m%d-%H%M%S')
-    run_tag = f"rt_{run_type}__iter_{max_iter}".replace(os.sep, "_")
-    iter_csv_path = os.path.join(protection_dir, f"iter_{run_type}.csv")
-    summary_csv_path = os.path.join(protection_dir, f"summary_{run_type}.csv")
-    iter_csv_needs_header = (not os.path.exists(iter_csv_path)) or (os.path.getsize(iter_csv_path) == 0)
-    iter_csv_f = open(iter_csv_path, 'a', newline='')
-    iter_csv_writer = csv.DictWriter(
-        iter_csv_f,
-        fieldnames=[
-            'run_type',
-            'current_iter',
-            'max_iter',
-            'prior_loss',
-            'iden_loss',
-            'total_loss',
-            'acc',
-        ],
-    )
-    if iter_csv_needs_header:
-        iter_csv_writer.writeheader()
 
 
     #NOTE
@@ -90,7 +66,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
         
         out = T(fake)[-1]
 
-        # "Black-box" variants: build tensors without in-place ops on autograd outputs.
+        # "Black-box" variants: target classifier outputs a modified result for the inversion GAN
         out_soft = torch.softmax(out, dim=1)
         if run_type == 'bb':
             output = out_soft
@@ -140,6 +116,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
             iter_csv_writer.writerow(
                 {
                     'run_type': run_type,
+                    'iden': concat(str(torch.argmax(iden, dim=1)),"-",str(torch.argmin(iden, dim=1))),
                     'current_iter': int(i + 1),
                     'max_iter': max_iter,
                     'prior_loss': Prior_Loss_val,
@@ -201,26 +178,6 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
     acc_var5 = statistics.variance(res5) if len(res5) > 1 else 0.0
     print("Acc:{:.2f}\tAcc_5:{:.2f}\tAcc_var:{:.4f}\tAcc_var5:{:.4f}".format(acc, acc_5, acc_var, acc_var5))
 
-    summary_csv_needs_header = (not os.path.exists(summary_csv_path)) or (os.path.getsize(summary_csv_path) == 0)
-    with open(summary_csv_path, 'a', newline='') as summary_csv_f:
-        summary_csv_writer = csv.DictWriter(
-            summary_csv_f,
-            fieldnames=['run_type', 'max_iter', 'acc', 'acc_5', 'acc_var', 'acc_var5'],
-        )
-        if summary_csv_needs_header:
-            summary_csv_writer.writeheader()
-        summary_csv_writer.writerow(
-            {
-                'run_type': run_type,
-                'max_iter': max_iter,
-                'acc': float(acc),
-                'acc_5': float(acc_5),
-                'acc_var': float(acc_var),
-                'acc_var5': float(acc_var5),
-            }
-        )
-
-    iter_csv_f.close()
 
 
     return acc, acc_5, acc_var, acc_var5

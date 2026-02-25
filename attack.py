@@ -62,8 +62,23 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
         else:
             label = D(fake)
         
+        run_type = 'bbmax'  # bb (softmax probs), bbmax (top-1 one-hot), otherwise uses logits
         out = T(fake)[-1]
+
+        # "Black-box" variants: build tensors without in-place ops on autograd outputs.
+        out_soft = torch.softmax(out, dim=1)
+        if run_type == 'bb':
+            output = out_soft
+        elif run_type == 'bbmax':
+            # Top-1 hard label, but keep gradients flowing like `out_soft` (straight-through estimator).
+            max_idx = out_soft.argmax(dim=1, keepdim=True)
+            one_hot = torch.zeros_like(out_soft).scatter(1, max_idx, 1.0)
+            output = one_hot
+        else:
+            output = out
         
+        Iden_Loss = criterion(output, iden)
+
         for p in params:
             if p.grad is not None:
                 p.grad.data.zero_()
@@ -73,7 +88,6 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
             # Prior_Loss =  torch.mean(F.softplus(log_sum_exp(label))) - torch.mean(label.gather(1, iden.view(-1, 1)))  #1 class prior
         else:
             Prior_Loss = - label.mean()
-        Iden_Loss = criterion(out, iden)
 
         Total_Loss = Prior_Loss + lamda * Iden_Loss
 

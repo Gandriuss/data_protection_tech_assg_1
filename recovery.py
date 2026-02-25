@@ -125,6 +125,8 @@ if __name__ == "__main__":
             aver_var += var / 5
             aver_var5 += var5 / 5
 
+            break
+
     print("Average Acc:{:.2f}\tAverage Acc5:{:.2f}\tAverage Acc_var:{:.4f}\tAverage Acc_var5:{:.4f}".format(aver_acc, aver_acc5, aver_var, aver_var5))
 
     

@@ -1,4 +1,5 @@
 import torch, os, time, random, generator, discri, classify, utils
+import csv
 import numpy as np 
 import torch.nn as nn
 import torchvision.utils as tvls
@@ -32,7 +33,7 @@ def reparameterize(mu, logvar):
     return eps * std + mu
 
 
-def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter_times=1500, clip_range=1, improved=False, num_seeds=5):
+def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter_times=1500, clip_range=1, improved=False, num_seeds=5, run_type="base"):
     iden = iden.view(-1).long().cuda()
     criterion = nn.CrossEntropyLoss().cuda()
     bs = iden.shape[0]
@@ -44,7 +45,62 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
 
     no = torch.zeros(bs) # index for saving all success attack images
 
-    tf = time.time()
+    # CSV logging (one file per run_type)
+    acc_dir = './acc_results'
+    os.makedirs(acc_dir, exist_ok=True)
+
+    def _safe_name(s):
+        s = str(s)
+        return ''.join(c if (c.isalnum() or c in ['-', '_']) else '_' for c in s)
+
+    run_id = "{}_itr{}_imp{}".format(time.strftime('%Y%m%d-%H%M%S'), itr, int(improved))
+    csv_path = os.path.join(acc_dir, "dist_inversion_{}.csv".format(_safe_name(run_type)))
+    csv_header = [
+        'run_id', 'timestamp', 'itr', 'run_type', 'improved', 'bs', 'iter_times', 'lr', 'momentum', 'lamda', 'clip_range',
+        'event', 'iteration', 'seed', 'prior_loss', 'iden_loss', 'attack_acc',
+        'acc_top1', 'acc_top5',
+        'acc_mean_top1', 'acc_mean_top5', 'acc_var_top1', 'acc_var_top5',
+        'elapsed_sec'
+    ]
+
+    def _append_row(**kwargs):
+        file_exists = os.path.exists(csv_path)
+        needs_header = (not file_exists) or (os.path.getsize(csv_path) == 0)
+        with open(csv_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+            if needs_header:
+                writer.writerow(csv_header)
+
+            base = {
+                'run_id': run_id,
+                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+                'itr': int(itr),
+                'run_type': str(run_type),
+                'improved': int(improved),
+                'bs': int(bs),
+                'iter_times': int(iter_times),
+                'lr': float(lr),
+                'momentum': float(momentum),
+                'lamda': float(lamda),
+                'clip_range': float(clip_range),
+                'event': '',
+                'iteration': '',
+                'seed': '',
+                'prior_loss': '',
+                'iden_loss': '',
+                'attack_acc': '',
+                'acc_top1': '',
+                'acc_top5': '',
+                'acc_mean_top1': '',
+                'acc_mean_top5': '',
+                'acc_var_top1': '',
+                'acc_var_top5': '',
+                'elapsed_sec': '',
+            }
+            base.update(kwargs)
+            writer.writerow([base.get(k, '') for k in csv_header])
+
+    opt_start_time = time.time()
 
     #NOTE
     mu = Variable(torch.zeros(bs, 100), requires_grad=True)
@@ -62,19 +118,24 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
         else:
             label = D(fake)
         
-        run_type = 'bbmax'  # bb (softmax probs), bbmax (top-1 one-hot), otherwise uses logits
         out = T(fake)[-1]
 
         # "Black-box" variants: build tensors without in-place ops on autograd outputs.
         out_soft = torch.softmax(out, dim=1)
         if run_type == 'bb':
             output = out_soft
-        elif run_type == 'bbmax':
+        elif run_type == 'bb_top1':
             # Top-1 hard label, but keep gradients flowing like `out_soft` (straight-through estimator).
             max_idx = out_soft.argmax(dim=1, keepdim=True)
             one_hot = torch.zeros_like(out_soft).scatter(1, max_idx, 1.0)
             output = one_hot
+        elif run_type == 'bb_top5':
+            _, topk_idx = torch.topk(out_soft, k=5, dim=1, largest=True, sorted=True)
+            fixed = torch.tensor([0.24, 0.22, 0.20, 0.18, 0.16], device=out_soft.device, dtype=out_soft.dtype)
+            fixed = fixed.view(1, 5).expand(bs, 5)
+            output = torch.zeros_like(out_soft).scatter(1, topk_idx, fixed)
         else:
+            # "White-box" varinat
             output = out
         
         Iden_Loss = criterion(output, iden)
@@ -105,15 +166,24 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
             eval_iden = torch.argmax(eval_prob, dim=1).view(-1)
             acc = iden.eq(eval_iden.long()).sum().item() * 1.0 / bs
             print("Iteration:{}\tPrior Loss:{:.2f}\tIden Loss:{:.2f}\tAttack Acc:{:.2f}".format(i+1, Prior_Loss_val, Iden_Loss_val, acc))
+                _append_row(
+                event='progress',
+                iteration=int(i + 1),
+                prior_loss=float(Prior_Loss_val),
+                iden_loss=float(Iden_Loss_val),
+                attack_acc=float(acc),
+                elapsed_sec=float(time.time() - opt_start_time),
+                )
             
-    interval = time.time() - tf
-    print("Time:{:.2f}".format(interval))
+            opt_interval = time.time() - opt_start_time
+            print("Time:{:.2f}".format(opt_interval))
+            _append_row(event='time', elapsed_sec=float(opt_interval))
     
     res = []
     res5 = []
-    seed_acc = torch.zeros((bs, 5))
+    seed_acc = torch.zeros((bs, num_seeds))
     for random_seed in range(num_seeds):
-        tf = time.time()
+        seed_start_time = time.time()
         z = reparameterize(mu, log_var)
         fake = G(z)
         score = T(fake)[-1]
@@ -136,8 +206,17 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
             if gt in top5_idx:
                 cnt5 += 1
                 
-        interval = time.time() - tf
-        print("Time:{:.2f}\tSeed:{}\tAcc:{:.2f}\t".format(interval, random_seed, cnt * 1.0 / bs))
+        seed_interval = time.time() - seed_start_time
+        top1_acc = cnt * 1.0 / bs
+        top5_acc = cnt5 * 1.0 / bs
+        print("Time:{:.2f}\tSeed:{}\tAcc:{:.2f}\t".format(seed_interval, random_seed, top1_acc))
+        _append_row(
+            event='seed',
+            seed=int(random_seed),
+            acc_top1=float(top1_acc),
+            acc_top5=float(top5_acc),
+            elapsed_sec=float(seed_interval),
+        )
         res.append(cnt * 1.0 / bs)
         res5.append(cnt5 * 1.0 / bs)
 
@@ -148,6 +227,15 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
     acc_var = statistics.variance(res)
     acc_var5 = statistics.variance(res5)
     print("Acc:{:.2f}\tAcc_5:{:.2f}\tAcc_var:{:.4f}\tAcc_var5:{:.4f}".format(acc, acc_5, acc_var, acc_var5))
+
+    _append_row(
+        event='summary',
+        acc_mean_top1=float(acc),
+        acc_mean_top5=float(acc_5),
+        acc_var_top1=float(acc_var),
+        acc_var_top5=float(acc_var5),
+        elapsed_sec=float(time.time() - opt_start_time),
+    )
 
 
     return acc, acc_5, acc_var, acc_var5

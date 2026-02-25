@@ -53,7 +53,8 @@ def dist_inversion(
     call_idx=None,
 ):
     iden = iden.view(-1).long().cuda()
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion_logits = nn.CrossEntropyLoss().cuda()
+    criterion_logprob = nn.NLLLoss().cuda()
     bs = iden.shape[0]
     
     G.eval()
@@ -106,8 +107,12 @@ def dist_inversion(
         else:
             # "White-box" varinat
             output = out
-        
-        Iden_Loss = criterion(output, iden)
+
+        if run_type in {'bb', 'bb_top1', 'bb_top5'}:
+            log_prob = torch.log(output.clamp_min(1e-12))
+            Iden_Loss = criterion_logprob(log_prob, iden)
+        else:
+            Iden_Loss = criterion_logits(output, iden)
 
         for p in params:
             if p.grad is not None:

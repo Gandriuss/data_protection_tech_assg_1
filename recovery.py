@@ -105,7 +105,7 @@ if __name__ == "__main__":
     E.load_state_dict(ckp_E['state_dict'], strict=False)
 
     run_type = args.run_type
-    max_iter = 300
+    max_iter = 2400
     iter_csv_f, iter_csv_writer, summary_csv_f, summary_csv_writer = csv_logs(run_type, max_iter)
 
     ############         attack     ###########

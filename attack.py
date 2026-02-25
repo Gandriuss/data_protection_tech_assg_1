@@ -50,7 +50,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
     os.makedirs(protection_dir, exist_ok=True)
     max_iter = int(iter_times)
     run_stamp = time.strftime('%Y%m%d-%H%M%S')
-    run_tag = f"{str(itr)}_rt{run_type}_max{max_iter}_{run_stamp}".replace(os.sep, "_")
+    run_tag = f"rt_{run_type}__iter_{max_iter}".replace(os.sep, "_")
     iter_csv_path = os.path.join(protection_dir, f"iter_{run_type}.csv")
     summary_csv_path = os.path.join(protection_dir, f"summary_{run_type}.csv")
     iter_csv_needs_header = (not os.path.exists(iter_csv_path)) or (os.path.getsize(iter_csv_path) == 0)
@@ -136,7 +136,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
             eval_prob = E(utils.low2high(fake_img))[-1]
             eval_iden = torch.argmax(eval_prob, dim=1).view(-1)
             acc = iden.eq(eval_iden.long()).sum().item() * 1.0 / bs
-            print("Iteration:{}\tPrior Loss:{:.2f}\tIden Loss:{:.2f}\tAttack Acc:{:.2f}".format(i+1, Prior_Loss_val, Iden_Loss_val, acc)) ###!!!!
+            print("Iteration:{}\tPrior Loss:{:.2f}\tIden Loss:{:.2f}\tAttack Acc:{:.2f}".format(i+1, Prior_Loss_val, Iden_Loss_val, acc))
             iter_csv_writer.writerow(
                 {
                     'run_type': run_type,
@@ -170,7 +170,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
             sample = fake[i]
             save_tensor_images(
                 sample.detach(),
-                os.path.join(save_img_dir, f"{run_tag}_seed{random_seed}_iden{gt+1}.png"),
+                os.path.join(save_img_dir, f"{run_tag}_iden{gt+1}.png"),
             )
 
             if eval_iden[i].item() == gt:
@@ -179,7 +179,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
                 best_img = G(z)[i]
                 save_tensor_images(
                     best_img.detach(),
-                    os.path.join(success_dir, f"{run_tag}_seed{random_seed}_iden{gt+1}_succ{int(no[i])}.png"),
+                    os.path.join(success_dir, f"{run_tag}_iden{gt+1}_succ{int(no[i])}.png"),
                 )
                 no[i] += 1
             _, top5_idx = torch.topk(eval_prob[i], 5)
@@ -199,7 +199,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
     acc, acc_5 = statistics.mean(res), statistics.mean(res5)
     acc_var = statistics.variance(res) if len(res) > 1 else 0.0
     acc_var5 = statistics.variance(res5) if len(res5) > 1 else 0.0
-    print("Acc:{:.2f}\tAcc_5:{:.2f}\tAcc_var:{:.4f}\tAcc_var5:{:.4f}".format(acc, acc_5, acc_var, acc_var5)) ###!!!!
+    print("Acc:{:.2f}\tAcc_5:{:.2f}\tAcc_var:{:.4f}\tAcc_var5:{:.4f}".format(acc, acc_5, acc_var, acc_var5))
 
     summary_csv_needs_header = (not os.path.exists(summary_csv_path)) or (os.path.getsize(summary_csv_path) == 0)
     with open(summary_csv_path, 'a', newline='') as summary_csv_f:

@@ -40,6 +40,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=str, default='0', help='CUDA visible devices (e.g. "0" or "0,1"). Use "cuda"/"cuda:0" to skip masking; "cpu" is not supported by this script.')
     parser.add_argument('--improved_flag', action='store_true', default=True, help='use improved k+1 GAN')
     parser.add_argument('--dist_flag', action='store_true', default=True, help='use distributional recovery')
+    parser.add_argument('--run_type', default='base', help='select target classifier output')
     args = parser.parse_args()
     logger = get_logger()
 
@@ -115,7 +116,7 @@ if __name__ == "__main__":
         for idx in range(5):
             print("--------------------- Attack batch [%s]------------------------------" % idx)
             if args.dist_flag == True:
-                acc, acc5, var, var5 = dist_inversion(G, D, T, E, iden, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=4800, clip_range=1, improved=args.improved_flag, num_seeds=5)
+                acc, acc5, var, var5 = dist_inversion(G, D, T, E, iden, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=4800, clip_range=1, improved=args.improved_flag, num_seeds=5, run_type=args.run_type)
             else:
                 acc, acc5, var, var5 = inversion(G, D, T, E, iden, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=2400, clip_range=1, improved=args.improved_flag)
             

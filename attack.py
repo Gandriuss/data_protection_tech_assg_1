@@ -45,62 +45,31 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
 
     no = torch.zeros(bs) # index for saving all success attack images
 
-    # CSV logging (one file per run_type)
-    acc_dir = './acc_results'
-    os.makedirs(acc_dir, exist_ok=True)
+    # Protection logging (CSV) + more descriptive image names.
+    protection_dir = './protection_results'
+    os.makedirs(protection_dir, exist_ok=True)
+    max_iter = int(iter_times)
+    run_stamp = time.strftime('%Y%m%d-%H%M%S')
+    run_tag = f"{str(itr)}_rt{run_type}_max{max_iter}_{run_stamp}".replace(os.sep, "_")
+    iter_csv_path = os.path.join(protection_dir, f"iter_{run_type}.csv")
+    summary_csv_path = os.path.join(protection_dir, f"summary_{run_type}.csv")
+    iter_csv_needs_header = (not os.path.exists(iter_csv_path)) or (os.path.getsize(iter_csv_path) == 0)
+    iter_csv_f = open(iter_csv_path, 'a', newline='')
+    iter_csv_writer = csv.DictWriter(
+        iter_csv_f,
+        fieldnames=[
+            'run_type',
+            'current_iter',
+            'max_iter',
+            'prior_loss',
+            'iden_loss',
+            'total_loss',
+            'acc',
+        ],
+    )
+    if iter_csv_needs_header:
+        iter_csv_writer.writeheader()
 
-    def _safe_name(s):
-        s = str(s)
-        return ''.join(c if (c.isalnum() or c in ['-', '_']) else '_' for c in s)
-
-    run_id = "{}_itr{}_imp{}".format(time.strftime('%Y%m%d-%H%M%S'), itr, int(improved))
-    csv_path = os.path.join(acc_dir, "dist_inversion_{}.csv".format(_safe_name(run_type)))
-    csv_header = [
-        'run_id', 'timestamp', 'itr', 'run_type', 'improved', 'bs', 'iter_times', 'lr', 'momentum', 'lamda', 'clip_range',
-        'event', 'iteration', 'seed', 'prior_loss', 'iden_loss', 'attack_acc',
-        'acc_top1', 'acc_top5',
-        'acc_mean_top1', 'acc_mean_top5', 'acc_var_top1', 'acc_var_top5',
-        'elapsed_sec'
-    ]
-
-    def _append_row(**kwargs):
-        file_exists = os.path.exists(csv_path)
-        needs_header = (not file_exists) or (os.path.getsize(csv_path) == 0)
-        with open(csv_path, 'a', newline='') as f:
-            writer = csv.writer(f)
-            if needs_header:
-                writer.writerow(csv_header)
-
-            base = {
-                'run_id': run_id,
-                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-                'itr': int(itr),
-                'run_type': str(run_type),
-                'improved': int(improved),
-                'bs': int(bs),
-                'iter_times': int(iter_times),
-                'lr': float(lr),
-                'momentum': float(momentum),
-                'lamda': float(lamda),
-                'clip_range': float(clip_range),
-                'event': '',
-                'iteration': '',
-                'seed': '',
-                'prior_loss': '',
-                'iden_loss': '',
-                'attack_acc': '',
-                'acc_top1': '',
-                'acc_top5': '',
-                'acc_mean_top1': '',
-                'acc_mean_top5': '',
-                'acc_var_top1': '',
-                'acc_var_top5': '',
-                'elapsed_sec': '',
-            }
-            base.update(kwargs)
-            writer.writerow([base.get(k, '') for k in csv_header])
-
-    opt_start_time = time.time()
 
     #NOTE
     mu = Variable(torch.zeros(bs, 100), requires_grad=True)
@@ -110,6 +79,7 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
     solver = optim.Adam(params, lr=lr)
     # scheduler = torch.optim.lr_scheduler.StepLR(solver, 1800, gamma=0.1)
         
+    tf = time.time()
     for i in range(iter_times):
         z = reparameterize(mu, log_var)
         fake = G(z)
@@ -157,27 +127,31 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
         
         z = torch.clamp(z.detach(), -clip_range, clip_range).float()
 
-        Prior_Loss_val = Prior_Loss.item()
-        Iden_Loss_val = Iden_Loss.item()
+        Prior_Loss_val = float(Prior_Loss.item())
+        Iden_Loss_val = float(Iden_Loss.item())
+        Total_Loss_val = float(Total_Loss.item())
 
         if (i+1) % 300 == 0:
             fake_img = G(z.detach())
             eval_prob = E(utils.low2high(fake_img))[-1]
             eval_iden = torch.argmax(eval_prob, dim=1).view(-1)
             acc = iden.eq(eval_iden.long()).sum().item() * 1.0 / bs
-            print("Iteration:{}\tPrior Loss:{:.2f}\tIden Loss:{:.2f}\tAttack Acc:{:.2f}".format(i+1, Prior_Loss_val, Iden_Loss_val, acc))
-                _append_row(
-                event='progress',
-                iteration=int(i + 1),
-                prior_loss=float(Prior_Loss_val),
-                iden_loss=float(Iden_Loss_val),
-                attack_acc=float(acc),
-                elapsed_sec=float(time.time() - opt_start_time),
-                )
+            print("Iteration:{}\tPrior Loss:{:.2f}\tIden Loss:{:.2f}\tAttack Acc:{:.2f}".format(i+1, Prior_Loss_val, Iden_Loss_val, acc)) ###!!!!
+            iter_csv_writer.writerow(
+                {
+                    'run_type': run_type,
+                    'current_iter': int(i + 1),
+                    'max_iter': max_iter,
+                    'prior_loss': Prior_Loss_val,
+                    'iden_loss': Iden_Loss_val,
+                    'total_loss': Total_Loss_val,
+                    'acc': float(acc),
+                }
+            )
+            iter_csv_f.flush()
             
-            opt_interval = time.time() - opt_start_time
-            print("Time:{:.2f}".format(opt_interval))
-            _append_row(event='time', elapsed_sec=float(opt_interval))
+    interval = time.time() - tf
+    print("Time:{:.2f}".format(interval))
     
     res = []
     res5 = []
@@ -194,13 +168,19 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
         for i in range(bs):
             gt = iden[i].item()
             sample = fake[i]
-            save_tensor_images(sample.detach(), os.path.join(save_img_dir, "attack_iden_{}_{}.png".format(gt+1, random_seed)))
+            save_tensor_images(
+                sample.detach(),
+                os.path.join(save_img_dir, f"{run_tag}_seed{random_seed}_iden{gt+1}.png"),
+            )
 
             if eval_iden[i].item() == gt:
                 seed_acc[i, random_seed] = 1
                 cnt += 1
                 best_img = G(z)[i]
-                save_tensor_images(best_img.detach(), os.path.join(success_dir, "{}_attack_iden_{}_{}.png".format(itr, gt+1, int(no[i]))))
+                save_tensor_images(
+                    best_img.detach(),
+                    os.path.join(success_dir, f"{run_tag}_seed{random_seed}_iden{gt+1}_succ{int(no[i])}.png"),
+                )
                 no[i] += 1
             _, top5_idx = torch.topk(eval_prob[i], 5)
             if gt in top5_idx:
@@ -210,13 +190,6 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
         top1_acc = cnt * 1.0 / bs
         top5_acc = cnt5 * 1.0 / bs
         print("Time:{:.2f}\tSeed:{}\tAcc:{:.2f}\t".format(seed_interval, random_seed, top1_acc))
-        _append_row(
-            event='seed',
-            seed=int(random_seed),
-            acc_top1=float(top1_acc),
-            acc_top5=float(top5_acc),
-            elapsed_sec=float(seed_interval),
-        )
         res.append(cnt * 1.0 / bs)
         res5.append(cnt5 * 1.0 / bs)
 
@@ -224,18 +197,30 @@ def dist_inversion(G, D, T, E, iden, itr, lr=2e-2, momentum=0.9, lamda=100, iter
         
     
     acc, acc_5 = statistics.mean(res), statistics.mean(res5)
-    acc_var = statistics.variance(res)
-    acc_var5 = statistics.variance(res5)
-    print("Acc:{:.2f}\tAcc_5:{:.2f}\tAcc_var:{:.4f}\tAcc_var5:{:.4f}".format(acc, acc_5, acc_var, acc_var5))
+    acc_var = statistics.variance(res) if len(res) > 1 else 0.0
+    acc_var5 = statistics.variance(res5) if len(res5) > 1 else 0.0
+    print("Acc:{:.2f}\tAcc_5:{:.2f}\tAcc_var:{:.4f}\tAcc_var5:{:.4f}".format(acc, acc_5, acc_var, acc_var5)) ###!!!!
 
-    _append_row(
-        event='summary',
-        acc_mean_top1=float(acc),
-        acc_mean_top5=float(acc_5),
-        acc_var_top1=float(acc_var),
-        acc_var_top5=float(acc_var5),
-        elapsed_sec=float(time.time() - opt_start_time),
-    )
+    summary_csv_needs_header = (not os.path.exists(summary_csv_path)) or (os.path.getsize(summary_csv_path) == 0)
+    with open(summary_csv_path, 'a', newline='') as summary_csv_f:
+        summary_csv_writer = csv.DictWriter(
+            summary_csv_f,
+            fieldnames=['run_type', 'max_iter', 'acc', 'acc_5', 'acc_var', 'acc_var5'],
+        )
+        if summary_csv_needs_header:
+            summary_csv_writer.writeheader()
+        summary_csv_writer.writerow(
+            {
+                'run_type': run_type,
+                'max_iter': max_iter,
+                'acc': float(acc),
+                'acc_5': float(acc_5),
+                'acc_var': float(acc_var),
+                'acc_var5': float(acc_var5),
+            }
+        )
+
+    iter_csv_f.close()
 
 
     return acc, acc_5, acc_var, acc_var5

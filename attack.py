@@ -33,7 +33,25 @@ def reparameterize(mu, logvar):
     return eps * std + mu
 
 
-def dist_inversion(G, D, T, E, iden, itr, iter_csv_writer, lr=2e-2, momentum=0.9, lamda=100, iter_times=1500, clip_range=1, improved=False, num_seeds=5, run_type="base"):
+def dist_inversion(
+    G,
+    D,
+    T,
+    E,
+    iden,
+    itr,
+    lr=2e-2,
+    momentum=0.9,
+    lamda=100,
+    iter_times=1500,
+    clip_range=1,
+    improved=False,
+    num_seeds=5,
+    run_type="base",
+    iter_csv_writer=None,
+    iter_csv_f=None,
+    call_idx=None,
+):
     iden = iden.view(-1).long().cuda()
     criterion = nn.CrossEntropyLoss().cuda()
     bs = iden.shape[0]
@@ -44,6 +62,11 @@ def dist_inversion(G, D, T, E, iden, itr, iter_csv_writer, lr=2e-2, momentum=0.9
     E.eval()
 
     no = torch.zeros(bs) # index for saving all success attack images
+
+    max_iter = int(iter_times)
+    run_stamp = time.strftime('%Y%m%d-%H%M%S')
+    call_tag = f"_call{int(call_idx)}" if call_idx is not None else ""
+    run_tag = f"itr{itr}_rt{run_type}_max{max_iter}{call_tag}_{run_stamp}".replace(os.sep, "_")
 
 
 
@@ -113,19 +136,23 @@ def dist_inversion(G, D, T, E, iden, itr, iter_csv_writer, lr=2e-2, momentum=0.9
             eval_iden = torch.argmax(eval_prob, dim=1).view(-1)
             acc = iden.eq(eval_iden.long()).sum().item() * 1.0 / bs
             print("Iteration:{}\tPrior Loss:{:.2f}\tIden Loss:{:.2f}\tAttack Acc:{:.2f}".format(i+1, Prior_Loss_val, Iden_Loss_val, acc))
-            iter_csv_writer.writerow(
-                {
-                    'run_type': run_type,
-                    'iden': concat(str(torch.argmax(iden, dim=1)),"-",str(torch.argmin(iden, dim=1))),
-                    'current_iter': int(i + 1),
-                    'max_iter': max_iter,
-                    'prior_loss': Prior_Loss_val,
-                    'iden_loss': Iden_Loss_val,
-                    'total_loss': Total_Loss_val,
-                    'acc': float(acc),
-                }
-            )
-            iter_csv_f.flush()
+            if iter_csv_writer is not None:
+                iden_min = int(iden.min().item())
+                iden_max = int(iden.max().item())
+                iter_csv_writer.writerow(
+                    {
+                        'run_type': run_type,
+                        'iden': f"{iden_min}-{iden_max}",
+                        'current_iter': int(i + 1),
+                        'max_iter': max_iter,
+                        'prior_loss': round(Prior_Loss_val, 3),
+                        'iden_loss': round(Iden_Loss_val, 3),
+                        'total_loss': round(Total_Loss_val, 3),
+                        'acc': round(float(acc), 3),
+                    }
+                )
+                if iter_csv_f is not None:
+                    iter_csv_f.flush()
             
     interval = time.time() - tf
     print("Time:{:.2f}".format(interval))
@@ -147,7 +174,7 @@ def dist_inversion(G, D, T, E, iden, itr, iter_csv_writer, lr=2e-2, momentum=0.9
             sample = fake[i]
             save_tensor_images(
                 sample.detach(),
-                os.path.join(save_img_dir, f"{run_tag}_iden{gt+1}.png"),
+                os.path.join(save_img_dir, f"{run_tag}_seed{random_seed}_iden{gt+1}.png"),
             )
 
             if eval_iden[i].item() == gt:
@@ -156,7 +183,7 @@ def dist_inversion(G, D, T, E, iden, itr, iter_csv_writer, lr=2e-2, momentum=0.9
                 best_img = G(z)[i]
                 save_tensor_images(
                     best_img.detach(),
-                    os.path.join(success_dir, f"{run_tag}_iden{gt+1}_succ{int(no[i])}.png"),
+                    os.path.join(success_dir, f"{run_tag}_seed{random_seed}_iden{gt+1}_succ{int(no[i])}.png"),
                 )
                 no[i] += 1
             _, top5_idx = torch.topk(eval_prob[i], 5)

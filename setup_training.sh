@@ -4,10 +4,6 @@ set -e
 
 echo "===== STARTING ENVIRONMENT REPLICATION ====="
 
-# 1. Clone the repository
-git clone https://github.com/Gandriuss/data_protection_tech_assg_1.git
-cd data_protection_tech_assg_1
-
 # 2. Setup Virtual Environment with uv
 pip install uv
 uv venv .venv --system-site-packages
@@ -37,9 +33,5 @@ if [ -f "celeba-dataset.zip" ]; then
 else
     echo "Warning: celeba-dataset.zip not found in data folder."
 fi
-
-# 6. Run Split Script
-cd ..
-python prepare_train_test_split.py
 
 echo "===== SETUP COMPLETE ====="

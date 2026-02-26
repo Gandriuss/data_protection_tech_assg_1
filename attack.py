@@ -94,6 +94,8 @@ def dist_inversion(
         out_soft = torch.softmax(out, dim=1)
         if run_type == 'bb':
             output = out_soft
+        elif run_type == 'bb_double_sigm':
+             output = torch.softmax(out_soft, dim=1)
         elif run_type == 'bb_top1':
             # Top-1 hard label, but keep gradients flowing like `out_soft` (straight-through estimator).
             max_idx = out_soft.argmax(dim=1, keepdim=True)
@@ -108,7 +110,7 @@ def dist_inversion(
             # "White-box" varinat
             output = out
 
-        if run_type in {'bb', 'bb_top1', 'bb_top5'}:
+        if run_type in {'bb', 'bb_top1', 'bb_top5', 'bb_double_sigm'}:
             log_prob = torch.log(output.clamp_min(1e-12))
             Iden_Loss = criterion_logprob(log_prob, iden)
         else:

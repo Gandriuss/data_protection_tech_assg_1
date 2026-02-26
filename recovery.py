@@ -61,7 +61,7 @@ if __name__ == "__main__":
         raise RuntimeError('CUDA is not available (or no visible devices). If on RunPod, use --device 0 and avoid CUDA_VISIBLE_DEVICES=4,5,6,7.')
 
     run_type = args.run_type
-    max_iter = 3000
+    max_iter = 4200
     iter_csv_f, iter_csv_writer, summary_csv_f, summary_csv_writer = csv_logs(run_type, max_iter)
    
 

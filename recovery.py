@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser(description='Step2: targeted recovery')
     parser.add_argument('--model', default='VGG16', help='VGG16 | IR152 | FaceNet64')
-    parser.add_argument('--device', type=str, default='0', help='CUDA visible devices (e.g. "0" or "0,1"). Use "cuda"/"cuda:0" to skip masking; "cpu" is not supported by this script.')
+    parser.add_argument('--device', type=str, default='0', help='CUDA visible devices (e.g. "0" or "0,1")')
     parser.add_argument('--improved_flag', action='store_true', default=True, help='use improved k+1 GAN')
     parser.add_argument('--dist_flag', action='store_true', default=True, help='use distributional recovery')
     parser.add_argument('--run_type', default='base', help='select target classifier output')
@@ -59,8 +59,12 @@ if __name__ == "__main__":
     print('torch.cuda.is_available =', torch.cuda.is_available(), 'device_count =', torch.cuda.device_count())
     if not torch.cuda.is_available() or torch.cuda.device_count() < 1:
         raise RuntimeError('CUDA is not available (or no visible devices). If on RunPod, use --device 0 and avoid CUDA_VISIBLE_DEVICES=4,5,6,7.')
+
+    run_type = args.run_type
+    max_iter = 4800
+    iter_csv_f, iter_csv_writer, summary_csv_f, summary_csv_writer = csv_logs(run_type, max_iter)
    
-    
+
     
     z_dim = 100
     ###########################################
@@ -103,10 +107,6 @@ if __name__ == "__main__":
     path_E = './target_model/target_ckp/FaceNet_95.88.tar'
     ckp_E = torch.load(path_E)
     E.load_state_dict(ckp_E['state_dict'], strict=False)
-
-    run_type = args.run_type
-    max_iter = 2400
-    iter_csv_f, iter_csv_writer, summary_csv_f, summary_csv_writer = csv_logs(run_type, max_iter)
 
     ############         attack     ###########
     logger.info("=> Begin attacking ...")

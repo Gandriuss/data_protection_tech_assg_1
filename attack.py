@@ -92,7 +92,7 @@ def dist_inversion(
 
         # "Black-box" variants: target classifier outputs a modified result for the inversion GAN
         out_soft = torch.softmax(out, dim=1)
-        if run_type == 'bb':
+        if run_type in {'bb', 'bb_cross_entr'}:
             # Baseline black-box model
             output = out_soft
         elif run_type == 'bb_double_sigm':
@@ -116,8 +116,10 @@ def dist_inversion(
         if run_type in {'bb', 'bb_top1', 'bb_top5', 'bb_double_sigm'}:
             log_prob = torch.log(output.clamp_min(1e-12))
             Iden_Loss = criterion_logprob(log_prob, iden)
-        else:
+        elif run_type in {'base', 'bb_cross_entr'}:
             Iden_Loss = criterion_logits(output, iden)
+        else:
+            raise ValueError("Please change the selected run_type")
 
         for p in params:
             if p.grad is not None:

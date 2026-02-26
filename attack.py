@@ -93,15 +93,18 @@ def dist_inversion(
         # "Black-box" variants: target classifier outputs a modified result for the inversion GAN
         out_soft = torch.softmax(out, dim=1)
         if run_type == 'bb':
+            # Baseline black-box model
             output = out_soft
         elif run_type == 'bb_double_sigm':
-             output = torch.softmax(out_soft, dim=1)
+            # Reduce gradients by repeatedly applying softmax
+            output = torch.softmax(out_soft, dim=1)
         elif run_type == 'bb_top1':
-            # Top-1 hard label, but keep gradients flowing like `out_soft` (straight-through estimator).
+            # Top-1 hard label
             max_idx = out_soft.argmax(dim=1, keepdim=True)
             one_hot = torch.zeros_like(out_soft).scatter(1, max_idx, 1.0)
             output = one_hot
         elif run_type == 'bb_top5':
+            # Top-5 Fixed label distribution
             _, topk_idx = torch.topk(out_soft, k=5, dim=1, largest=True, sorted=True)
             fixed = torch.tensor([0.24, 0.22, 0.20, 0.18, 0.16], device=out_soft.device, dtype=out_soft.dtype)
             fixed = fixed.view(1, 5).expand(bs, 5)

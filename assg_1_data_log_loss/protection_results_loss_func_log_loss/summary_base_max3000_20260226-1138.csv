@@ -1,0 +1,2 @@
+run_type,max_iter,acc,acc_5,acc_var,acc_var5
+base,3000,0.719,0.914,0.002,0.001

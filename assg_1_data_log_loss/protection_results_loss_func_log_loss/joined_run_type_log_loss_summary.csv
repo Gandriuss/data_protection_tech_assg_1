@@ -1,0 +1,7 @@
+run_type,max_iter,acc,acc_5,acc_var,acc_var5,source_file
+base,3000,0.719,0.914,0.002,0.001,summary_base_max3000_20260226-1138.csv
+bb_cross_entr,3000,0.481,0.613,0.002,0.0,summary_bb_cross_entr_max3000_20260226-1204.csv
+bb_double_sigm,3000,0.451,0.571,0.001,0.001,summary_bb_double_sigm_max3000_20260226-1304.csv
+bb,3000,0.709,0.91,0.002,0.001,summary_bb_max3000_20260226-1143.csv
+bb_top1,3000,0.001,0.002,0.0,0.0,summary_bb_top1_max3000_20260226-1148.csv
+bb_top5,3000,0.004,0.005,0.0,0.0,summary_bb_top5_max3000_20260226-1151.csv

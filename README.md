@@ -19,6 +19,6 @@ Authors propose a novel **'Inversion-Specific GAN'** that can better distill kno
 * visualize results by running `plot_recovery_results.ipynb`.
 
 ## Modifications to original code
-apart from logging and plotting functions, code has been only modified
+apart from logging and plotting functions, original paper auther code has been only modified in:
 * revovery.py (implementation of different script run modes)
 * attack.py (function dist_inversion() contains modification to victim output based on the different run modes)

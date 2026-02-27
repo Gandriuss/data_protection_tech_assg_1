@@ -4,7 +4,7 @@ This is a fork of PyTorch implementation of author paper at ICCV2021:
 
 Authors propose a novel **'Inversion-Specific GAN'** that can better distill knowledge useful for performing attacks on private models from public data. Moreover,  they propose to *model a private data distribution* for each target class which refers to **'Distributional Recovery'**.
 
-## Forked Repository Experiment Goal
+## Experiment Goal
 * Test different black-box model security measures to prevent private training data recovery.
 
 ## Getting Started
@@ -12,7 +12,7 @@ Authors propose a novel **'Inversion-Specific GAN'** that can better distill kno
 * Download pre-trained FaceNet_95.88.tar evaluator model parameters from: https://drive.google.com/drive/folders/1L3frX-CE4j36pe5vVWuy3SgKGS9kkA70?usp=sharing. Place the file inside ./target_model/target_ckp
 
 
-## Run the experiment
-* execute `run_experiment.sh`
-* find results under `protection_results/` folder
-* visualize results by running `plot_recovery_results.ipynb`
+## Replicate the experiment
+* execute `run_experiment.sh`. It runs the Model Inversion attack multiple times, each one utilzing a different security strategy.
+* `run_experiment.sh` produces results under `protection_results/` folder.
+* visualize results by running `plot_recovery_results.ipynb`.

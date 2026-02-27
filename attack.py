@@ -113,6 +113,7 @@ def dist_inversion(
             # "White-box" varinat
             output = out
 
+		# Calculate identity loss based on run type
         if run_type in {'bb', 'bb_top1', 'bb_top5', 'bb_double_sigm'}:
             log_prob = torch.log(output.clamp_min(1e-12))
             Iden_Loss = criterion_logprob(log_prob, iden)

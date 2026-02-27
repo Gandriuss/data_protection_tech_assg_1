@@ -9,7 +9,7 @@ Authors propose a novel **'Inversion-Specific GAN'** that can better distill kno
 
 ## Getting Started
 * execute `prepare_for_experiment.sh` to download CelebA dataset and necessary python libraries.
-* Download pre-trained FaceNet_95.88.tar evaluator model parameters from: https://drive.google.com/drive/folders/1L3frX-CE4j36pe5vVWuy3SgKGS9kkA70?usp=sharing. Place the file inside ./target_model/target_ckp
+* Download pre-trained FaceNet_95.88.tar evaluator model parameters from: https://drive.google.com/drive/folders/1U4gekn72UX_n1pHdm9GQUQwwYVDvpTfN. Place the file inside ./target_model/target_ckp
 
 
 ## Replicate the experiment

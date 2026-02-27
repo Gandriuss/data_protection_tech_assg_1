@@ -1,4 +1,4 @@
-This is a fork of PyTorch implementation of author paper at ICCV2021:
+## This is a fork of PyTorch implementation of author paper at ICCV2021:
 
 **Knowledge Enriched Distributional Model Inversion Attacks** \[[paper](https://openaccess.thecvf.com/content/ICCV2021/papers/Chen_Knowledge-Enriched_Distributional_Model_Inversion_Attacks_ICCV_2021_paper.pdf)\]  \[[arxiv](https://arxiv.org/abs/2010.04092)\]
 
@@ -13,6 +13,6 @@ Authors propose a novel **'Inversion-Specific GAN'** that can better distill kno
 
 
 ## Replicate the experiment
-* execute `run_experiment.sh`. It runs the Model Inversion attack multiple times, each one utilzing a different security strategy.
+* execute `run_experiment.sh`. It runs the Model Inversion attack multiple times, each one utilzing a different victim security measure.
 * `run_experiment.sh` produces results under `protection_results/` folder.
 * visualize results by running `plot_recovery_results.ipynb`.

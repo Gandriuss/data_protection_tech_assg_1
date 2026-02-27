@@ -5,7 +5,7 @@ This is a fork of PyTorch implementation of author paper at ICCV2021:
 Authors propose a novel **'Inversion-Specific GAN'** that can better distill knowledge useful for performing attacks on private models from public data. Moreover,  they propose to *model a private data distribution* for each target class which refers to **'Distributional Recovery'**.
 
 ## Forked Repository Experiment Goal
-* Test different black-box model security measures to prevent private data recovery.
+* Test different black-box model security measures to prevent private training data recovery.
 
 ## Getting Started
 * execute `prepare_for_experiment.sh` to download CelebA dataset and necessary python libraries.

@@ -1,2 +1,0 @@
-run_type,max_iter,acc,acc_5,acc_var,acc_var5
-bb_top5,3000,0.004,0.005,0.0,0.0

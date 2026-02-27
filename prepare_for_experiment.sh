@@ -1,23 +1,19 @@
 #!/usr/bin/env bash
-# Exit immediately if a command exits with a non-zero status
+
 set -e
 
 echo "===== STARTING ENVIRONMENT REPLICATION ====="
 
-# 2. Setup Virtual Environment with uv
+# Setup Virtual Environment with uv
 pip install uv
 uv venv .venv --system-site-packages
 source .venv/bin/activate
 
-# 3. Install dependencies and fix PATH
+# Install dependencies
 uv pip install ipykernel pandas scikit-learn torchvision matplotlib tensorboardX
-export PATH="/workspace/data_protection_tech_assg_1/.venv/bin:$PATH"
 
-# 4. Configure Git
-git config user.name "Andrius"
-git config user.email "andriusresetnikovas1@gmail.com"
 
-# 5. Handle Data
+# Download CelebA dataset from Kaggle
 mkdir -p data
 cd data
 curl -L -o ./celeba-dataset.zip\
@@ -35,3 +31,5 @@ else
 fi
 
 echo "===== SETUP COMPLETE ====="
+echo "Now download GAN, victim & evaluator model .tar files from"
+echo "https://drive.google.com/drive/folders/1L3frX-CE4j36pe5vVWuy3SgKGS9kkA70"

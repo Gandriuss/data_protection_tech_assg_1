@@ -3,7 +3,7 @@
         "gan_file_path": "./data/ganset.txt",
         "model_name": "train_gan - first stage",
         "name": "celeba",
-        "img_path": "./data/img_align_celeba/img_align_celeba",
+        "img_path": "./data/img_align_celeba_png",
         "n_classes":1000
     },
 
@@ -11,7 +11,7 @@
         "lr": 0.0002,
         "batch_size": 64,
         "z_dim": 100,
-        "epochs": 20,
+        "epochs": 120,
         "n_critic": 5,
         "unlabel_weight": 10
     },

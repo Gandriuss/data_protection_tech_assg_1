@@ -14,10 +14,7 @@ import torch.nn.functional as F
 from discri import DGWGAN, Discriminator, MinibatchDiscriminator
 from generator import Generator
 from classify import *
-try:
-    from tensorboardX import SummaryWriter  # type: ignore
-except ImportError:
-    from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 from datetime import datetime
 TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
 
@@ -63,6 +60,7 @@ utils.Tee(os.path.join(log_path, log_file), 'w')
 
 
 if __name__ == "__main__":
+    os.environ["CUDA_VISIBLE_DEVICES"] = '4, 5, 6, 7'
     global args, writer
     
     file = "./config/" + dataset_name + ".json"
@@ -77,36 +75,17 @@ if __name__ == "__main__":
     epochs = args[model_name]['epochs']
     n_critic = args[model_name]['n_critic']
 
-    # Pick the best VGG16 checkpoint by parsing accuracy from filename.
-    # Expected pattern: VGG16_<ACC>_*.tar or VGG16_<ACC>.tar
-    ckpt_dir = './target_model/target_ckp'
-    best_acc = None
-    path_T = None
-    for fname in os.listdir(ckpt_dir):
-        if not (fname.startswith('VGG16_') and fname.endswith('.tar')):
-            continue
-        parts = fname.split('_')
-        if len(parts) < 2:
-            continue
-        # parts[1] is the token between 1st and 2nd underscore.
-        # It may be like "88.26.tar" or "74.48" depending on filename.
-        acc_token = parts[1]
-        if acc_token.endswith('.tar'):
-            acc_token = acc_token[:-4]
-        try:
-            acc = float(acc_token)
-        except ValueError:
-            continue
-        if best_acc is None or acc > best_acc:
-            best_acc = acc
-            path_T = os.path.join(ckpt_dir, fname)
+    model_name_T = "VGG16"
 
-    if path_T is None:
-        raise FileNotFoundError(f'No suitable VGG16_*.tar found in {ckpt_dir}')
-
-    print(f"Selected target checkpoint: {path_T} (acc={best_acc:.2f})")
-    T = VGG16(1000)
-
+    if model_name_T.startswith("VGG16"):
+        T = VGG16(1000)
+        path_T = './target_model/target_ckp/VGG16_88.26.tar'
+    elif model_name_T.startswith('IR152'):
+        T = IR152(1000)
+        path_T = './target_model/target_ckp/IR152_91.16.tar'
+    elif model_name_T == "FaceNet64":
+        T = FaceNet64(1000)
+        path_T = './target_model/target_ckp/FaceNet64_88.50.tar'
 
     T = torch.nn.DataParallel(T).cuda()
     ckp_T = torch.load(path_T)
@@ -116,16 +95,6 @@ if __name__ == "__main__":
     utils.print_params(args["dataset"], args[model_name])
 
     dataset, dataloader = utils.init_dataloader(args, file_path, batch_size, mode="gan")
-
-    # Build one additional loader from the same dataset (avoid re-loading all images each epoch).
-    unlabel_loader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        drop_last=True,
-        num_workers=2,
-        pin_memory=True,
-    )
 
     G = Generator(z_dim)
     DG = MinibatchDiscriminator()
@@ -143,8 +112,8 @@ if __name__ == "__main__":
 
     for epoch in range(epochs):
         start = time.time()
-        unlabel_iter1 = iter(unlabel_loader)
-        unlabel_iter2 = iter(unlabel_loader)
+        _, unlabel_loader1 = init_dataloader(args, file_path, batch_size, mode="gan", iterator=True)
+        _, unlabel_loader2 = init_dataloader(args, file_path, batch_size, mode="gan", iterator=True)
 
         for i, imgs in enumerate(dataloader):
             current_iter = epoch * len(dataloader) + i + 1
@@ -152,20 +121,8 @@ if __name__ == "__main__":
             step += 1
             imgs = imgs.cuda()
             bs = imgs.size(0)
-            try:
-                x_unlabel = next(unlabel_iter1)
-            except StopIteration:
-                unlabel_iter1 = iter(unlabel_loader)
-                x_unlabel = next(unlabel_iter1)
-
-            try:
-                x_unlabel2 = next(unlabel_iter2)
-            except StopIteration:
-                unlabel_iter2 = iter(unlabel_loader)
-                x_unlabel2 = next(unlabel_iter2)
-
-            x_unlabel = x_unlabel.cuda()
-            x_unlabel2 = x_unlabel2.cuda()
+            x_unlabel = unlabel_loader1.next()
+            x_unlabel2 = unlabel_loader2.next()
             
             freeze(G)
             unfreeze(DG)

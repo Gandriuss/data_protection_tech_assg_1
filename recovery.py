@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     print("=> Using improved GAN:", args.improved_flag)
 
-    # Device/GPU selection (RunPod single-GPU pods typically expose only GPU 0)
+    # Device/GPU selection
     dev = str(args.device).strip()
     if dev.lower() == 'cpu':
         raise RuntimeError('This script uses many hard-coded .cuda() calls; run with --device 0 (GPU) instead of cpu.')
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     print('CUDA_VISIBLE_DEVICES =', os.environ.get('CUDA_VISIBLE_DEVICES'))
     print('torch.cuda.is_available =', torch.cuda.is_available(), 'device_count =', torch.cuda.device_count())
     if not torch.cuda.is_available() or torch.cuda.device_count() < 1:
-        raise RuntimeError('CUDA is not available (or no visible devices). If on RunPod, use --device 0 and avoid CUDA_VISIBLE_DEVICES=4,5,6,7.')
+        raise RuntimeError('CUDA is not available (or no visible devices)')
 
     run_type = args.run_type
     max_iter = 4200
